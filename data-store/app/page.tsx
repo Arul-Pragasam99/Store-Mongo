@@ -65,17 +65,7 @@ export default function Home() {
         delay: 0.4,
         ease: "power2.out"
       });
-
-      gsap.from(`.${styles.submit}`, {
-        scale: 0.9,
-        opacity: 0,
-        duration: 0.6,
-        delay: 0.7,
-        ease: "back.out(1.7)"
-      });
-    }, pageRef);
-
-    return () => ctx.revert();
+    });
   }, []);
 
   // Load entries
@@ -286,9 +276,9 @@ export default function Home() {
           <button 
             className={styles.submit} 
             type="submit" 
-            disabled={!isValid || submitting}
+            disabled={submitting}
             onMouseEnter={() => {
-              if (!(!isValid || submitting)) {
+              if (!(submitting)) {
                 gsap.to(`.${styles.submit}`, {
                   scale: 1.02,
                   duration: 0.2,
