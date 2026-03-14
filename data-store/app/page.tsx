@@ -19,6 +19,7 @@ export default function Home() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Refs for animations
   const pageRef = useRef<HTMLDivElement>(null);
@@ -33,7 +34,6 @@ export default function Home() {
   // Initial page load animation
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // Title animation
       gsap.from(titleRef.current, {
         y: -30,
         opacity: 0,
@@ -41,7 +41,6 @@ export default function Home() {
         ease: "power3.out"
       });
 
-      // Lead text animation
       gsap.from(leadRef.current, {
         y: -20,
         opacity: 0,
@@ -50,7 +49,6 @@ export default function Home() {
         ease: "power3.out"
       });
 
-      // Form animation
       gsap.from(formRef.current, {
         y: 20,
         opacity: 0,
@@ -59,7 +57,6 @@ export default function Home() {
         ease: "power3.out"
       });
 
-      // Form fields staggered animation
       gsap.from(`.${styles.field}`, {
         x: -15,
         opacity: 0,
@@ -69,7 +66,6 @@ export default function Home() {
         ease: "power2.out"
       });
 
-      // Submit button animation
       gsap.from(`.${styles.submit}`, {
         scale: 0.9,
         opacity: 0,
@@ -82,17 +78,21 @@ export default function Home() {
     return () => ctx.revert();
   }, []);
 
-  // Load entries and animate them
+  // Load entries
   useEffect(() => {
     async function loadEntries() {
+      setIsLoading(true);
       try {
         const res = await fetch("/api/entries");
         if (!res.ok) throw new Error("Failed to load entries");
         const data: Entry[] = await res.json();
+        console.log("Loaded entries:", data); // This will still show in console
         setEntries(data);
       } catch (error) {
         console.error(error);
         setStatus("Could not load existing entries.");
+      } finally {
+        setIsLoading(false);
       }
     }
 
@@ -102,17 +102,19 @@ export default function Home() {
   // Animate entries after they're loaded
   useEffect(() => {
     if (entries.length > 0) {
-      const validRefs = entryRefs.current.filter(ref => ref !== null);
-      if (validRefs.length > 0) {
-        gsap.from(validRefs, {
-          y: 20,
-          opacity: 0,
-          duration: 0.6,
-          stagger: 0.08,
-          ease: "power2.out",
-          delay: 0.2
-        });
-      }
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        const validRefs = entryRefs.current.filter(ref => ref !== null);
+        if (validRefs.length > 0) {
+          gsap.from(validRefs, {
+            y: 20,
+            opacity: 0,
+            duration: 0.6,
+            stagger: 0.08,
+            ease: "power2.out"
+          });
+        }
+      }, 100);
     }
   }, [entries]);
 
@@ -161,12 +163,14 @@ export default function Home() {
       }
 
       const created = await res.json();
+      console.log("Created entry:", created); // This will still show in console
+      
       const newEntry = {
-        _id: created.id,
+        _id: created.id || created._id,
         name,
         email,
         message,
-        createdAt: created.createdAt,
+        createdAt: created.createdAt || new Date().toISOString(),
       };
       
       setEntries((current) => [newEntry, ...current]);
@@ -220,6 +224,23 @@ export default function Home() {
 
   const setEntryRef = (index: number) => (el: HTMLLIElement | null) => {
     entryRefs.current[index] = el;
+  };
+
+  // Format date nicely
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   return (
@@ -291,13 +312,16 @@ export default function Home() {
 
         <section ref={listRef} className={styles.list}>
           <h2 className={styles.listTitle}>Recent entries</h2>
-          {entries.length === 0 ? (
+          
+          {isLoading ? (
+            <p className={styles.emptyMessage}>Loading entries...</p>
+          ) : entries.length === 0 ? (
             <p className={styles.emptyMessage}>No entries yet. Be the first to add one!</p>
           ) : (
             <ul className={styles.entryList}>
               {entries.map((entry, index) => (
                 <li 
-                  key={entry._id} 
+                  key={entry._id || index} 
                   ref={setEntryRef(index)}
                   className={styles.entry}
                   onMouseEnter={() => {
@@ -324,11 +348,13 @@ export default function Home() {
                   }}
                 >
                   <div className={styles.meta}>
-                    <strong>{entry.name}</strong>
-                    <span>{entry.email}</span>
-                    <span>{new Date(entry.createdAt).toLocaleString()}</span>
+                    <strong className={styles.entryName}>{entry.name || "Unknown"}</strong>
+                    <span className={styles.entryEmail}>{entry.email || "No email"}</span>
+                    <span className={styles.entryDate}>{formatDate(entry.createdAt)}</span>
                   </div>
-                  {entry.message && <p className={styles.message}>{entry.message}</p>}
+                  {entry.message && entry.message.trim() !== "" && (
+                    <p className={styles.message}>{entry.message}</p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -338,4 +364,3 @@ export default function Home() {
     </div>
   );
 }
-  
